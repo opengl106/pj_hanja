@@ -67,10 +67,11 @@ class H2HModel():
 
 if __name__ == '__main__':
     # Data loading
-    X_train, Y_train = load_data(mode="train")
+    X_train, Y_train, L_train = load_data(mode="train")
     train_data_x = tf.data.Dataset.from_tensor_slices(X_train)
     train_data_y = tf.data.Dataset.from_tensor_slices(Y_train)
-    dataset = tf.data.Dataset.zip((train_data_x, train_data_y)).batch(hp.batch_size)
+    train_data_l = tf.data.Dataset.from_tensor_slices(L_train)
+    dataset = tf.data.Dataset.zip((tf.data.Dataset.zip((train_data_x, train_data_y)), train_data_l)).shuffle(hp.buffer_size).batch(hp.batch_size)
 
     # Model loading
     if os.path.exists(hp.logdir + "/model.keras"):

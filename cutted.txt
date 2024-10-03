@@ -1,0 +1,20 @@
+import tensorflow as tf
+from data_load import load_vocab, load_data
+from hyperparams import Hyperparams as hp
+
+hangul2idx, idx2hangul, hanja2idx, idx2hanja = load_vocab()
+X_train, Y_train, L_train = load_data(mode="train")
+train_data_x = tf.data.Dataset.from_tensor_slices(X_train)
+train_data_y = tf.data.Dataset.from_tensor_slices(Y_train)
+train_data_l = tf.data.Dataset.from_tensor_slices(L_train)
+dataset = tf.data.Dataset.zip((tf.data.Dataset.zip((train_data_x, train_data_y)), train_data_l)).shuffle(hp.buffer_size).batch(hp.batch_size)
+
+for ((hangul, hanja), hanja_labels) in dataset.take(1):
+  break
+
+print(hangul.shape)
+print(hanja.shape)
+print(hanja_labels.shape)
+print([idx2hangul[item] for item in hangul[0].numpy().tolist()])
+print([idx2hanja[item] for item in hanja[0].numpy().tolist()])
+print([idx2hanja[item] for item in hanja_labels[0].numpy().tolist()])
