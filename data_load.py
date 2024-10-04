@@ -14,7 +14,10 @@ def load_vocab_list():
             hanjas.add(hanja)
     hanjas = hanjas - hanguls
     hanguls = sorted(list(hanguls))
-    hanjas = sorted(list(hanjas))
+    # NOTE 1
+    # Note by Lena: As now we are using the transformer paradigm, the self-attention between the input
+    # hanjas and the input hanguls in the same sentence must be taken into consideration.
+    hanjas = hanguls + sorted(list(hanjas))
     return hanguls, hanjas
 
 def load_vocab():

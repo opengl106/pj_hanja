@@ -2,7 +2,6 @@ import tensorflow as tf
 from data_load import load_vocab, load_data
 from hyperparams import Hyperparams as hp
 
-hangul2idx, idx2hangul, hanja2idx, idx2hanja = load_vocab()
 X_train, Y_train, L_train = load_data(mode="train")
 train_data_x = tf.data.Dataset.from_tensor_slices(X_train)
 train_data_y = tf.data.Dataset.from_tensor_slices(Y_train)
@@ -13,9 +12,12 @@ for i, ((hangul, hanja), hanja_labels) in enumerate(dataset.take(1)):
     if i >= 3:
         break
 
+"""
 print(hangul.shape)
 print(hanja.shape)
 print(hanja_labels.shape)
+
+hangul2idx, idx2hangul, hanja2idx, idx2hanja = load_vocab()
 print([idx2hangul[item] for item in hangul[0].numpy().tolist()])
 print([idx2hanja[item] for item in hanja[0].numpy().tolist()])
 print([idx2hanja[item] for item in hanja_labels[0].numpy().tolist()])
@@ -23,9 +25,10 @@ print([idx2hanja[item] for item in hanja_labels[0].numpy().tolist()])
 print(hanja[0][:10])
 print(hanja_labels[0][:10])
 
+from models import positional_encoding
+
 pos_encoding = positional_encoding(length=2048, depth=512)
 
-"""
 # Check the shape.
 print(pos_encoding.shape)
 
@@ -37,10 +40,25 @@ plt.colorbar()
 plt.show()
 """
 
-from train import PositionalEmbedding
+from models import PositionalEmbedding
 
 embed_hangul = PositionalEmbedding(vocab_size=len(hangul2idx), d_model=512)
 embed_hanja = PositionalEmbedding(vocab_size=len(hanja2idx), d_model=512)
 
 hangul_emb = embed_hangul(hangul)
 hanja_emb = embed_hanja(hanja)
+
+"""
+from models import CrossAttention, GlobalSelfAttention
+
+sample_ca = CrossAttention(num_heads=2, key_dim=512)
+
+print(hangul_emb.shape)
+print(hanja_emb.shape)
+print(sample_ca(hanja_emb, hangul_emb).shape)
+
+sample_gsa = GlobalSelfAttention(num_heads=2, key_dim=512)
+
+print(hanja_emb.shape)
+print(sample_gsa(hanja_emb).shape)
+"""
