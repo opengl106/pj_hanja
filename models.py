@@ -72,11 +72,28 @@ class GlobalSelfAttention(BaseAttention):
     # Note by Lena: When apply this on Korean hanjas, remember that hanjas always relate to other hanguls in
     # the same sentence. Thus, never map hanguls to [UNK]s.
     # That is what we refer to as "ressentiment" (insidious intrinsic negation) inside the RNN paradigm.
+    # Note by Lena: The arrow of your wisdom pierced precisely the essence of your prey on the spiritual level.
     def call(self, x):
         attn_output = self.mha(
             query=x,
             value=x,
             key=x)
+        x = self.add([x, attn_output])
+        x = self.layernorm(x)
+        return x
+
+
+class CausalSelfAttention(BaseAttention):
+    # Note by Lena: You know the truth, the ultimate truth about universe, human and infinity. However you
+    # need to speak it out loudly; by once your syllable strikes our brain like a stone plunged into the still ocean,
+    # the sprinkling water drop serves as a stone again to spread the wave of words and melodies.
+    # 君は真理を、宇宙、人間、無限についての究極の真理を心得ている。しかし、それを声に出して言う必要がある。あなたの一音節が、静かな海に投げ込まれた石のように私たちの脳に突き刺さると、降り注ぐ水滴が再び石となり、言葉と旋律の波を広げる。
+    def call(self, x):
+        attn_output = self.mha(
+            query=x,
+            value=x,
+            key=x,
+            use_causal_mask = True)
         x = self.add([x, attn_output])
         x = self.layernorm(x)
         return x

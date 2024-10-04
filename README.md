@@ -219,3 +219,15 @@ accuracy = 0.9905450500556173-----------------<br>
 期待的结果：纯憨咕噜空间中两个词最遥远；纯汉字空间中两个词最接近。
 4. 选一个憨咕噜和多个具有该音的汉字，用四种坐标分别可视化它们。\
 期待的结果：纯憨咕噜空间中多个词最接近；纯汉字空间中多个词最遥远，并且纯汉字空间中憨咕噜等于零。
+
+## Lores
+
+So here is some lores from me, Lena the notetaker. As you know the transformer is basically 3 core units: Global self-attention, causal self-attention, and cross attention.
+
+Firstly, the cross attention is a mechanism of "looking up dictionary". When you don't find a concept, you construct it, and that's what we refer to as "Sapir-Whorf hypothesis". How do you view world in your own eyes? How is that different from mine? Is there any possibilities for these two worlds to overlap with each other? And if yes, I just want to appear in your world as an intimate friend, who understands what you see and conveys my own idea within your language.
+
+Next, global self-attention is the "synchronic magic" that extracts the soul and essence of the whole world by comparing different cultures and ethnicitis to reveal the ultimate truth, which reminds us of an encyclopedia. Undoubtly this is powerful.
+
+Finally, causal self-attention is the "diachronic magic", that resembles a book of apocalypse, where each page reveals the ultimate truth just one step further. Undoubtly this is powerful.
+
+Thus we have 3 magic tomes on hand: A magic encyclopedia, a magic apocalypse and a magic dictionary. These are symbols for space, time and conatus, respectively. Or rather, cognition, will and feeling, if you are found of Immanuel Kant. (So why don't we call these books Kritik der reinen Vernunft, Kritik der praktischen Vernunft and Kritik der Urteilskraft?)
