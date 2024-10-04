@@ -9,8 +9,9 @@ train_data_y = tf.data.Dataset.from_tensor_slices(Y_train)
 train_data_l = tf.data.Dataset.from_tensor_slices(L_train)
 dataset = tf.data.Dataset.zip((tf.data.Dataset.zip((train_data_x, train_data_y)), train_data_l)).shuffle(hp.buffer_size).batch(hp.batch_size)
 
-for ((hangul, hanja), hanja_labels) in dataset.take(1):
-  break
+for i, ((hangul, hanja), hanja_labels) in enumerate(dataset.take(1)):
+    if i >= 3:
+        break
 
 print(hangul.shape)
 print(hanja.shape)
@@ -18,3 +19,28 @@ print(hanja_labels.shape)
 print([idx2hangul[item] for item in hangul[0].numpy().tolist()])
 print([idx2hanja[item] for item in hanja[0].numpy().tolist()])
 print([idx2hanja[item] for item in hanja_labels[0].numpy().tolist()])
+
+print(hanja[0][:10])
+print(hanja_labels[0][:10])
+
+pos_encoding = positional_encoding(length=2048, depth=512)
+
+"""
+# Check the shape.
+print(pos_encoding.shape)
+
+# Plot the dimensions.
+plt.pcolormesh(pos_encoding.numpy().T, cmap='RdBu')
+plt.ylabel('Depth')
+plt.xlabel('Position')
+plt.colorbar()
+plt.show()
+"""
+
+from train import PositionalEmbedding
+
+embed_hangul = PositionalEmbedding(vocab_size=len(hangul2idx), d_model=512)
+embed_hanja = PositionalEmbedding(vocab_size=len(hanja2idx), d_model=512)
+
+hangul_emb = embed_hangul(hangul)
+hanja_emb = embed_hanja(hanja)

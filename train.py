@@ -11,7 +11,7 @@ import pandas as pd
 import tensorflow as tf
 from tensorflow import keras
 
-from common import masked_accuracy, masked_loss
+from common import masked_accuracy, masked_loss, positional_encoding
 from data_load import load_vocab, load_data
 from hyperparams import Hyperparams as hp
 
@@ -63,6 +63,27 @@ class H2HModel():
         logit = self.model.predict(data, batch_size=batch_size)
         pred = tf.cast(tf.argmax(logit, axis=-1), dtype=dtype)
         return pred
+
+
+class PositionalEmbedding(tf.keras.layers.Layer):
+    def __init__(self, vocab_size, d_model):
+        super().__init__()
+        self.d_model = d_model
+        self.embedding = tf.keras.layers.Embedding(vocab_size, d_model, mask_zero=True)
+        self.pos_encoding = positional_encoding(length=2048, depth=d_model)
+
+    def compute_mask(self, *args, **kwargs):
+        return self.embedding.compute_mask(*args, **kwargs)
+
+    def call(self, x):
+        length = tf.shape(x)[1]
+        x = self.embedding(x)
+        # This factor sets the relative scale of the embedding and positonal_encoding.
+        # Note by Lena: The magnitude of the L2 norm of the embedding vector is 1 while that of the pos_encoding vector is sqrt(depth),
+        # as the magnitude of the L∞ norm of pos_encoding vector is 1.
+        x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
+        x = x + self.pos_encoding[tf.newaxis, :length, :]
+        return x
 
 
 if __name__ == '__main__':
