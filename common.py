@@ -18,9 +18,9 @@ def masked_loss(label, logit):
 
 def masked_accuracy(label, logit):
     pred = tf.cast(tf.argmax(logit, axis=-1), dtype=label.dtype)
-    unmasked = tf.cast(pred == label, dtype=tf.int32)
+    unmasked = pred == label
 
-    mask = tf.cast(label != 0, dtype=tf.int32)
-    hits = unmasked * mask
+    mask = label != 0
+    hits = unmasked & mask
 
-    return tf.reduce_sum(hits) / tf.reduce_sum(mask)
+    return tf.reduce_sum(tf.cast(hits, dtype=tf.float32)) / tf.reduce_sum(tf.cast(mask, dtype=tf.float32))

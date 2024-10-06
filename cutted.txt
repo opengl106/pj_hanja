@@ -32,6 +32,8 @@ pos_encoding = positional_encoding(length=2048, depth=512)
 # Check the shape.
 print(pos_encoding.shape)
 
+import matplotlib.pyplot as plt
+
 # Plot the dimensions.
 plt.pcolormesh(pos_encoding.numpy().T, cmap='RdBu')
 plt.ylabel('Depth')
@@ -141,5 +143,39 @@ print(hangul_emb.shape)
 print(output.shape)
 
 sample_decoder.last_attn_scores.shape  # (batch, heads, target_seq, input_seq)
+
+from models import Transformer
+
+transformer = Transformer(
+    num_layers=hp.num_layers,
+    d_model=hp.d_model,
+    num_heads=hp.num_heads,
+    dff=hp.dff,
+    input_vocab_size=len(hangul2idx),
+    target_vocab_size=len(hanja2idx),
+    dropout_rate=hp.dropout_rate)
+
+output = transformer((hangul, hanja))
+
+print(hanja.shape)
+print(hangul.shape)
+print(output.shape)
+
+attn_scores = transformer.decoder.dec_layers[-1].last_attn_scores
+print(attn_scores.shape)  # (batch, heads, target_seq, input_seq)
+
+transformer.summary()
+
+import matplotlib.pyplot as plt
+from models import CustomSchedule
+
+learning_rate = CustomSchedule(hp.d_model)
+optimizer = tf.keras.optimizers.Adam(learning_rate, beta_1=0.9, beta_2=0.98,
+                                     epsilon=1e-9)
+
+plt.plot(learning_rate(tf.range(40000, dtype=tf.float32)))
+plt.ylabel('Learning Rate')
+plt.xlabel('Train Step')
+plt.show()
 
 """

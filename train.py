@@ -13,6 +13,7 @@ from tensorflow import keras
 
 from common import masked_accuracy, masked_loss
 from data_load import load_vocab, load_data
+from models import CustomSchedule, Transformer
 from hyperparams import Hyperparams as hp
 
 
@@ -22,39 +23,30 @@ hangul2idx, idx2hangul, hanja2idx, idx2hanja = load_vocab()
 
 class H2HModel():
     """
-    A tensorflow 2 version of the original model.
+    A tensorflow 2 transformer version of the original model.
     """
     def __init__(self, model=None):
         if model:
             self.model = model
             return None
 
-        self.model = keras.Sequential([
-            keras.layers.Input(shape=[hp.maxlen], name="hangul_sent", dtype=tf.int32),
-            # Mask zeros in the variable length input sequences.
-            keras.layers.Embedding(len(hangul2idx), hp.hidden_units, mask_zero=True),
-            keras.layers.Bidirectional(
-                layer=keras.layers.GRU(
-                    hp.hidden_units,
-                    return_sequences=True,
-                    return_state=False,
-                ),
-                merge_mode='concat',
-            ),
-            keras.layers.Dense(len(hanja2idx)),
-        ])
+        self.model = Transformer(
+            num_layers=hp.num_layers,
+            d_model=hp.d_model,
+            num_heads=hp.num_heads,
+            dff=hp.dff,
+            input_vocab_size=len(hangul2idx),
+            target_vocab_size=len(hanja2idx),
+            dropout_rate=hp.dropout_rate)
 
-        optimizer = keras.optimizers.Adam(
-            learning_rate=hp.learning_rate,
-        )
-        metrics = [
-            masked_accuracy,
-            masked_loss,
-        ]
+        learning_rate = CustomSchedule(hp.d_model)
+        optimizer = tf.keras.optimizers.Adam(learning_rate, beta_1=0.9, beta_2=0.98,
+                                             epsilon=1e-9)
+
         self.model.compile(
             optimizer=optimizer,
             loss=masked_loss,
-            metrics=metrics,
+            metrics=[masked_accuracy],
         )
 
         return None
@@ -71,7 +63,13 @@ if __name__ == '__main__':
     train_data_x = tf.data.Dataset.from_tensor_slices(X_train)
     train_data_y = tf.data.Dataset.from_tensor_slices(Y_train)
     train_data_l = tf.data.Dataset.from_tensor_slices(L_train)
-    dataset = tf.data.Dataset.zip((tf.data.Dataset.zip((train_data_x, train_data_y)), train_data_l)).shuffle(hp.buffer_size).batch(hp.batch_size)
+    train_batches = tf.data.Dataset.zip((tf.data.Dataset.zip((train_data_x, train_data_y)), train_data_l)).shuffle(hp.buffer_size).batch(hp.batch_size)
+
+    X_val, Y_val, L_val = load_data(mode="val")
+    val_data_x = tf.data.Dataset.from_tensor_slices(X_val)
+    val_data_y = tf.data.Dataset.from_tensor_slices(Y_val)
+    val_data_l = tf.data.Dataset.from_tensor_slices(L_val)
+    val_batches = tf.data.Dataset.zip((tf.data.Dataset.zip((val_data_x, val_data_y)), val_data_l)).shuffle(hp.buffer_size).batch(hp.batch_size)
 
     # Model loading
     if os.path.exists(hp.logdir + "/model.keras"):
@@ -93,8 +91,9 @@ if __name__ == '__main__':
         verbose=1
     )
     history = m.model.fit(
-        dataset,
+        train_batches,
         epochs=hp.num_epochs,
+        validation_data=val_batches,
         callbacks=[cp_callback],
     )
 
@@ -112,13 +111,10 @@ if __name__ == '__main__':
         hist_df.to_csv(f)
 
     # Evaluating
-    x_val, y_val = load_data(mode="val")
-    val_data_x = tf.data.Dataset.from_tensor_slices(x_val)
-    val_data_y = tf.data.Dataset.from_tensor_slices(y_val)
-    preds = m.predict(x_val)
+    preds = m.predict(val_batches[0])
     pred_data = tf.data.Dataset.from_tensor_slices(preds)
     with codecs.open(hp.logdir + "/eval.txt", 'w', 'utf-8') as fout:
-        for xx, yy, pred in tf.data.Dataset.zip(val_data_x, val_data_y, pred_data): # sentence-wise
+        for xx, yy, pred in tf.data.Dataset.zip(val_data_x, val_data_l, pred_data): # sentence-wise
             inputs, expected, got = [], [], []
             for xxx, yyy, ppp in zip(xx, yy, pred):  # character-wise
                 if int(xxx)==0: break
