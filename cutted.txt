@@ -267,3 +267,15 @@ for i in tf.range(hp.maxlen):
         output_array = output_array.write((i + 1) * bulk_size + j, predicted_id[j][0])
     if tf.reduce_sum(end_sentences) == 0:
         break
+
+
+from predict import H2HPredictor
+p = H2HPredictor()
+string = "그 성곽을 척량하매 일백 사십 사 규빗이니 사람의 척량 곧 천사의 척량이라"
+p(string)
+
+strings = [
+    "그 성곽을 척량하매 일백 사십 사 규빗이니 사람의 척량 곧 천사의 척량이라",
+    "그 열 두 문은 열 두 진주니 문마다 한 진주요 성의 길은 맑은 유리 같은 정금이더라",
+]
+p.convert(strings)

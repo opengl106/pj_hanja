@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow as tf
-from tensorflow import keras
+from tqdm import tqdm
 from typing import List
 
 from data_load import load_vocab_list, load_vocab
@@ -29,7 +29,9 @@ class H2HPredictor():
         output_array = tf.TensorArray(dtype=tf.int64, size=0, dynamic_size=True)
         output_array = output_array.write(0, start)
 
-        for i in tf.range(hp.maxlen):
+        pbar = tqdm(range(hp.maxlen))
+        for i in pbar:
+            pbar.set_description(f"Calculating token on {i}th position")
             output = tf.transpose(output_array.stack())[np.newaxis, :]
             predictions = self.model([input_tensor, output], training=False)
 
@@ -71,7 +73,9 @@ class H2HPredictor():
         for j in range(bulk_size):
             output_array = output_array.write(0 * bulk_size + j, start)
 
-        for i in tf.range(hp.maxlen):
+        pbar = tqdm(range(hp.maxlen))
+        for i in pbar:
+            pbar.set_description(f"Calculating tokens on {i}th position")
             output = tf.transpose(tf.reshape(tf.transpose(output_array.stack()), [i + 1, bulk_size]))
             predictions = self.model([input_tensor, output], training=False)
 
