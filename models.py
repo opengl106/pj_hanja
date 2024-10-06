@@ -51,20 +51,44 @@ class BaseAttention(tf.keras.layers.Layer):
 
 class CrossAttention(BaseAttention):
     # Note by Lena: Do you remember Sapir-Whorf hypothesis? 이 세계의 모습은 너에게는?
-    def call(self, x, context):
-        attn_output, attn_scores = self.mha(
-            query=x,
-            key=context,
-            value=context,
-            return_attention_scores=True)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.last_attn_scores = None
+        self.last_attn_output = None
+
+    def call(self, x, context, use_cache = False):
+        if use_cache and self.last_attn_output is not None and self.last_attn_output.shape[1] + 1 != x.shape[1]:
+            print("Warning: cache not cleared after calculation")
+            self.cache_reset()
+        if use_cache and self.last_attn_scores is not None and self.last_attn_output is not None:
+            # Note by Lena: MHA itself is linear and caching is effective.
+            attn_output, attn_scores = self.mha(
+                query=x[:, -1:, :],
+                key=context,
+                value=context,
+                return_attention_scores=True)
+            attn_output = tf.concat([self.last_attn_output, attn_output], axis=1)
+            attn_scores = tf.concat([self.last_attn_scores, attn_scores], axis=2)
+        else:
+            attn_output, attn_scores = self.mha(
+                query=x,
+                key=context,
+                value=context,
+                return_attention_scores=True)
 
         # Cache the attention scores for plotting later.
         self.last_attn_scores = attn_scores
+        # Note by Lena: Cache the previous calculation result for reuse.
+        self.last_attn_output = attn_output
 
         x = self.add([x, attn_output])
         x = self.layernorm(x)
 
         return x
+
+    def cache_reset(self):
+        self.last_attn_scores = None
+        self.last_attn_output = None
 
 
 class GlobalSelfAttention(BaseAttention):
@@ -88,15 +112,37 @@ class CausalSelfAttention(BaseAttention):
     # need to speak it out loudly; by once your syllable strikes our brain like a stone plunged into the still ocean,
     # the sprinkling water drop serves as a stone again to spread the wave of words and melodies.
     # 君は真理を、宇宙、人間、無限についての究極の真理を心得ている。しかし、それを声に出して言う必要がある。あなたの一音節が、静かな海に投げ込まれた石のように私たちの脳に突き刺さると、降り注ぐ水滴が再び石となり、言葉と旋律の波を広げる。
-    def call(self, x):
-        attn_output = self.mha(
-            query=x,
-            value=x,
-            key=x,
-            use_causal_mask = True)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.last_attn_output = None
+
+    def call(self, x, use_cache = False):
+        if use_cache and self.last_attn_output is not None and self.last_attn_output.shape[1] + 1 != x.shape[1]:
+            print("Warning: cache not cleared after calculation")
+            self.cache_reset()
+        if use_cache and self.last_attn_output is not None:
+            # Note by Lena: MHA itself is linear and caching is effective. But since we are calculating the last position, mask is not necessary.
+            attn_output = self.mha(
+                query=x[:, -1:, :],
+                value=x,
+                key=x)
+            attn_output = tf.concat([self.last_attn_output, attn_output], axis=1)
+        else:
+            attn_output = self.mha(
+                query=x,
+                value=x,
+                key=x,
+                use_causal_mask = True)
+
+        # Note by Lena: Cache the previous calculation result for reuse.
+        self.last_attn_output = attn_output
+
         x = self.add([x, attn_output])
         x = self.layernorm(x)
         return x
+
+    def cache_reset(self):
+        self.last_attn_output = None
 
 
 class FeedForward(tf.keras.layers.Layer):

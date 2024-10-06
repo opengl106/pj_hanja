@@ -200,8 +200,6 @@ if os.path.exists(checkpoint_path + ".index"):
     m.model.load_weights(checkpoint_path)
     keras.backend.set_value(m.model.optimizer.learning_rate, hp.learning_rate)
 
-"""
-
 strings = [
     "그 성곽을 척량하매 일백 사십 사 규빗이니 사람의 척량 곧 천사의 척량이라",
     "그 열 두 문은 열 두 진주니 문마다 한 진주요 성의 길은 맑은 유리 같은 정금이더라",
@@ -298,3 +296,87 @@ c = p.convert(strings)
 dt = time.time() - t
 dt
 c[962]
+
+from models import BaseAttention
+
+class PlainCrossAttention(BaseAttention):
+    def call(self, x, context):
+        attn_output, attn_scores = self.mha(
+            query=x,
+            key=context,
+            value=context,
+            return_attention_scores=True)
+        # Cache the attention scores for plotting later.
+        self.last_attn_scores = attn_scores
+        return x
+
+sample_ca = PlainCrossAttention(num_heads=2, key_dim=512)
+
+print(hangul_emb.shape)
+print(hanja_emb.shape)
+ca = sample_ca(hanja_emb, hangul_emb)
+print(ca.shape)
+
+import numpy as np
+
+ca_steps = []
+for i in range(hanja_emb.shape[1]):
+    ca_steps.append(sample_ca(hanja_emb[:, i: i + 1, :], hangul_emb))
+
+ca_stepwise = tf.concat(ca_steps, axis=1)
+tf.reduce_max(abs(ca_stepwise - ca)).numpy()
+
+
+import numpy as np
+import time
+from models import CrossAttention
+sample_ca = CrossAttention(num_heads=2, key_dim=512)
+
+ca_uncached_1 = sample_ca(hanja_emb[:, :200, :], hangul_emb)
+sample_ca.cache_reset()
+ca_uncached_2 = sample_ca(hanja_emb, hangul_emb)
+sample_ca.cache_reset()
+
+t = time.time()
+for i in range(200):
+    ca = sample_ca(hanja_emb[:, : i + 1, :], hangul_emb, use_cache = True)
+
+dt = time.time() - t
+
+t = time.time()
+for i in range(200):
+    ca = sample_ca(hanja_emb[:, : i + 1, :], hangul_emb)
+
+dt2 = time.time() - t
+
+tf.reduce_max(abs(ca_uncached_1 - ca)).numpy()
+tf.reduce_max(abs(ca_uncached_2 - ca)).numpy()
+
+
+import numpy as np
+import time
+from models import CausalSelfAttention
+sample_csa = CausalSelfAttention(num_heads=2, key_dim=512)
+
+csa_uncached_1 = sample_csa(hanja_emb[:, :200, :])
+sample_csa.cache_reset()
+csa_uncached_2 = sample_csa(hanja_emb)
+sample_csa.cache_reset()
+
+t = time.time()
+for i in range(200):
+    csa = sample_csa(hanja_emb[:, : i + 1, :], use_cache = True)
+
+dt = time.time() - t
+
+t = time.time()
+for i in range(200):
+    csa = sample_csa(hanja_emb[:, : i + 1, :])
+
+dt2 = time.time() - t
+
+tf.reduce_max(abs(csa_uncached_1 - csa)).numpy()
+tf.reduce_max(abs(csa_uncached_2 - csa)).numpy()
+
+"""
+
