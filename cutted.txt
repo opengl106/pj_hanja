@@ -279,3 +279,22 @@ strings = [
     "그 열 두 문은 열 두 진주니 문마다 한 진주요 성의 길은 맑은 유리 같은 정금이더라",
 ]
 p.convert(strings)
+
+import time
+import codecs
+strings = []
+i = 0
+for line in codecs.open('data/bible_ko.tsv', 'r', 'utf-8'):
+    if len(line) <= 150:
+        strings.append(line.strip().split("\t")[0])
+        i += 1
+    if i >= 1000:
+        break
+
+strings[962]
+
+t = time.time()
+c = p.convert(strings)
+dt = time.time() - t
+dt
+c[962]

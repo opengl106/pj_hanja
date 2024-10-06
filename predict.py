@@ -27,12 +27,12 @@ class H2HPredictor():
         hangul_indice = [start] + [hangul2idx.get(char, 1) for char in text] + [end] + (hp.maxlen - len(text) - 2) * [0]
         input_tensor = tf.reshape(tf.stack(hangul_indice), [1, hp.maxlen])
         output_array = tf.TensorArray(dtype=tf.int64, size=0, dynamic_size=True)
-        output_array = output_array.write(0, start)
+        output_array = output_array.write(0, tf.cast(np.full((1), start), dtype=tf.int64))
 
         pbar = tqdm(range(hp.maxlen))
         for i in pbar:
             pbar.set_description(f"Calculating token on {i}th position")
-            output = tf.transpose(output_array.stack())[np.newaxis, :]
+            output = tf.transpose(output_array.stack())
             predictions = self.model([input_tensor, output], training=False)
 
             # Select the last token from the `seq_len` dimension.
@@ -42,7 +42,7 @@ class H2HPredictor():
 
             # Concatenate the `predicted_id` to the output which is given to the
             # decoder as its input.
-            output_array = output_array.write(i + 1, predicted_id[0][0])
+            output_array = output_array.write(i + 1, predicted_id[:, 0])
 
             if predicted_id[0][0] == end:
                 break
@@ -66,18 +66,17 @@ class H2HPredictor():
         input_tensor = tf.convert_to_tensor(
             [tf.stack(indice) for indice in hangul_indices]
         )
-        output_array = tf.TensorArray(dtype=tf.int64, size=0, dynamic_size=True)
         bulk_size = input_tensor.shape[0]
         end_sentences = tf.cast(np.ones([bulk_size, 1]), dtype=tf.int64)
         ends = tf.cast(np.array(end)[np.newaxis, np.newaxis], dtype=tf.int64)
-        for j in range(bulk_size):
-            output_array = output_array.write(0 * bulk_size + j, start)
+        output_array = tf.TensorArray(dtype=tf.int64, size=0, dynamic_size=True)
+        output_array = output_array.write(0, tf.cast(np.full((bulk_size), start), dtype=tf.int64))
 
         pbar = tqdm(range(hp.maxlen))
         for i in pbar:
             pbar.set_description(f"Calculating tokens on {i}th position")
-            output = tf.transpose(tf.reshape(tf.transpose(output_array.stack()), [i + 1, bulk_size]))
-            predictions = self.model([input_tensor, output], training=False)
+            output = tf.transpose(output_array.stack())
+            predictions = self.model.predict([input_tensor, output], batch_size=hp.batch_size, verbose=0)
 
             # Select the last token from the `seq_len` dimension.
             predictions = predictions[:, -1:, :]  # Shape `(batch_size, 1, vocab_size)`.
@@ -88,8 +87,7 @@ class H2HPredictor():
             # decoder as its input.
             end_sentences *= tf.cast(predicted_id != ends, tf.int64)
             predicted_id *= end_sentences
-            for j in range(bulk_size):
-                output_array = output_array.write((i + 1) * bulk_size + j, predicted_id[j][0])
+            output_array = output_array.write(i + 1, predicted_id[:, 0])
 
             if tf.reduce_sum(end_sentences) == 0:
                 break
