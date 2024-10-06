@@ -10,5 +10,5 @@ class Hyperparams:
     dropout_rate = 0.1
 
     logdir = "log"
-    num_epochs = 20
+    num_epochs = 1
     learning_rate = 0.0005

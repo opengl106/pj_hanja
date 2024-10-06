@@ -179,3 +179,26 @@ plt.xlabel('Train Step')
 plt.show()
 
 """
+
+
+X_train, Y_train, L_train = load_data(mode="train")
+train_data_x = tf.data.Dataset.from_tensor_slices(X_train)
+train_data_y = tf.data.Dataset.from_tensor_slices(Y_train)
+train_data_l = tf.data.Dataset.from_tensor_slices(L_train)
+train_batches = tf.data.Dataset.zip((tf.data.Dataset.zip((train_data_x, train_data_y)), train_data_l)).shuffle(hp.buffer_size).batch(hp.batch_size)
+X_val, Y_val, L_val = load_data(mode="val")
+val_data_x = tf.data.Dataset.from_tensor_slices(X_val)
+val_data_y = tf.data.Dataset.from_tensor_slices(Y_val)
+val_data_l = tf.data.Dataset.from_tensor_slices(L_val)
+val_batches = tf.data.Dataset.zip((tf.data.Dataset.zip((val_data_x, val_data_y)), val_data_l)).shuffle(hp.buffer_size).batch(hp.batch_size)
+
+
+m = H2HModel()
+# Loading checkpoint
+checkpoint_path = hp.logdir + "/cp.ckpt"
+if not os.path.exists(hp.logdir):
+    os.mkdir(hp.logdir)
+
+if os.path.exists(checkpoint_path + ".index"):
+    m.model.load_weights(checkpoint_path)
+    keras.backend.set_value(m.model.optimizer.learning_rate, hp.learning_rate)

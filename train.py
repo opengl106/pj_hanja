@@ -25,11 +25,7 @@ class H2HModel():
     """
     A tensorflow 2 transformer version of the original model.
     """
-    def __init__(self, model=None):
-        if model:
-            self.model = model
-            return None
-
+    def __init__(self):
         self.model = Transformer(
             num_layers=hp.num_layers,
             d_model=hp.d_model,
@@ -69,22 +65,19 @@ if __name__ == '__main__':
     val_data_x = tf.data.Dataset.from_tensor_slices(X_val)
     val_data_y = tf.data.Dataset.from_tensor_slices(Y_val)
     val_data_l = tf.data.Dataset.from_tensor_slices(L_val)
-    val_batches = tf.data.Dataset.zip((tf.data.Dataset.zip((val_data_x, val_data_y)), val_data_l)).shuffle(hp.buffer_size).batch(hp.batch_size)
+    val_batches = tf.data.Dataset.zip((tf.data.Dataset.zip((val_data_x, val_data_y)), val_data_l)).batch(hp.batch_size)
 
-    # Model loading
-    if os.path.exists(hp.logdir + "/model.keras"):
-        print(f"Loading dataset from {hp.logdir}/model.keras")
-        model = keras.models.load_model(hp.logdir + "/model.keras", custom_objects={
-            'masked_accuracy': masked_accuracy,
-            'masked_loss': masked_loss,
-        })
-        keras.backend.set_value(model.optimizer.learning_rate, hp.learning_rate)
-        m = H2HModel(model)
-    else:
-        m = H2HModel()
+    m = H2HModel()
+
+    # Loading checkpoint
+    checkpoint_path = hp.logdir + "/cp.ckpt"
+    if not os.path.exists(hp.logdir):
+        os.mkdir(hp.logdir)
+    if os.path.exists(checkpoint_path + ".index"):
+        m.model.load_weights(checkpoint_path)
+        keras.backend.set_value(m.model.optimizer.learning_rate, hp.learning_rate)
 
     # Training
-    checkpoint_path = hp.logdir + "/cp.ckpt"
     cp_callback = tf.keras.callbacks.ModelCheckpoint(
         filepath=checkpoint_path,
         save_weights_only=True,
@@ -97,10 +90,6 @@ if __name__ == '__main__':
         callbacks=[cp_callback],
     )
 
-    if not os.path.exists(hp.logdir):
-        os.mkdir(hp.logdir)
-    m.model.save(hp.logdir + "/model.keras")
-
     # Logging
     hist_df = pd.DataFrame(history.history)
     hist_json_file = hp.logdir + "/history.json"
@@ -111,7 +100,7 @@ if __name__ == '__main__':
         hist_df.to_csv(f)
 
     # Evaluating
-    preds = m.predict(val_batches[0])
+    preds = m.predict(val_batches)
     pred_data = tf.data.Dataset.from_tensor_slices(preds)
     with codecs.open(hp.logdir + "/eval.txt", 'w', 'utf-8') as fout:
         for xx, yy, pred in tf.data.Dataset.zip(val_data_x, val_data_l, pred_data): # sentence-wise
