@@ -120,7 +120,7 @@ By this faith we can save up the computational resource if we know that the prev
 2.3841858e-06
 ```
 
-But nevertheless, there are way more to be covered here in the cache part though; as for the CA part, K and V matrices can be directly reused to omit a FC and transpose layer, while in the CSA part, only the part corresponding to the new position need to be calculated and concatenated to the previous K and V matrices. Since this requires to manually override the `tf.keras.layers.MultiHeadAttention.call()` code, and is not difficult at all to implement, I will leave this as a to-do item and a practice homework for our passionate reader, if some of my words happened to strike you along your journey seeking the ultimate truth.
+But nevertheless, there are way more to be covered here in the cache part though; as for the CA part, K and V matrices can be directly reused to omit a FC and transpose layer, while in the CSA part, only the part corresponding to the new position need to be calculated and concatenated to the previous K and V matrices. Since implementing the KV-caching mechanism requires manually overriding the `tf.keras.layers.MultiHeadAttention.call()` code, and is not difficult at all to implement, I will leave this as a to-do item and a practice homework for our passionate reader, if some of my words happened to strike you along your journey seeking the ultimate truth.
 
 ## Training
   * Adjust hyperparameters in the `hyperparams.py` if necessary.
@@ -298,6 +298,11 @@ Note by Lena: this paragraph is updated.
 * Got     : 主 예수의 恩惠가 모든 者들에게 있을지어다 아멘[END]
 
 loss: 0.0138 - masked_accuracy: 0.9972 - val_loss: 0.0497 - val_masked_accuracy: 0.9940
+
+## Efficiency
+
+Comparing to the [RNN Model](https://github.com/opengl106/t2_h2h_converter/tree/RNN_version_archive), this transformer one shows better performance on the quality and correctness of transcripted hanjas. However, on time cost, it is 40 times worse than the RNN version. As KV-cache itself is not implemented in my version, the real necessary computational cost may be actually 1/4 or less, but still one magnitude larger than that of an RNN. This proves that transformers have way less fixed cost (for the training part) and more margin cost (for the application part), thus more apt as a valid business mode.
+
 
 # 待验证：道与逻格斯
 
