@@ -56,7 +56,7 @@ class CrossAttention(BaseAttention):
         self.last_attn_scores = None
         self.last_attn_output = None
 
-    def call(self, x, context, use_cache = False):
+    def call(self, x, context, use_cache=False):
         if use_cache and self.last_attn_output is not None and self.last_attn_output.shape[1] + 1 != x.shape[1]:
             print("Warning: cache not cleared after calculation")
             self.cache_reset()
@@ -116,7 +116,7 @@ class CausalSelfAttention(BaseAttention):
         super().__init__(**kwargs)
         self.last_attn_output = None
 
-    def call(self, x, use_cache = False):
+    def call(self, x, use_cache=False):
         if use_cache and self.last_attn_output is not None and self.last_attn_output.shape[1] + 1 != x.shape[1]:
             print("Warning: cache not cleared after calculation")
             self.cache_reset()
@@ -155,11 +155,26 @@ class FeedForward(tf.keras.layers.Layer):
         ])
         self.add = tf.keras.layers.Add()
         self.layer_norm = tf.keras.layers.LayerNormalization()
+        self.last_seq_output = None
 
-    def call(self, x):
-        x = self.add([x, self.seq(x)])
+    def call(self, x, use_cache=False):
+        if use_cache and self.last_seq_output is not None and self.last_seq_output.shape[1] + 1 != x.shape[1]:
+            print("Warning: cache not cleared after calculation")
+            self.cache_reset()
+        if use_cache and self.last_seq_output is not None:
+            seq_output = self.seq(x[:, -1:, :])
+            seq_output = tf.concat([self.last_seq_output, seq_output], axis=1)
+        else:
+            seq_output = self.seq(x)
+
+        self.last_seq_output = seq_output
+
+        x = self.add([x, seq_output])
         x = self.layer_norm(x)
         return x
+
+    def cache_reset(self):
+        self.last_seq_output = None
 
 
 class EncoderLayer(tf.keras.layers.Layer):
@@ -232,15 +247,20 @@ class DecoderLayer(tf.keras.layers.Layer):
 
         self.ffn = FeedForward(d_model, dff)
 
-    def call(self, x, context):
-        x = self.causal_self_attention(x=x)
-        x = self.cross_attention(x=x, context=context)
+    def call(self, x, context, use_cache=False):
+        x = self.causal_self_attention(x=x, use_cache=use_cache)
+        x = self.cross_attention(x=x, context=context, use_cache=use_cache)
 
         # Cache the last attention scores for plotting later
         self.last_attn_scores = self.cross_attention.last_attn_scores
 
-        x = self.ffn(x)  # Shape `(batch_size, seq_len, d_model)`.
+        x = self.ffn(x, use_cache=use_cache)  # Shape `(batch_size, seq_len, d_model)`.
         return x
+
+    def cache_reset(self):
+        self.causal_self_attention.cache_reset()
+        self.cross_attention.cache_reset()
+        self.ffn.cache_reset()
 
 
 class Decoder(tf.keras.layers.Layer):
@@ -261,19 +281,23 @@ class Decoder(tf.keras.layers.Layer):
 
         self.last_attn_scores = None
 
-    def call(self, x, context):
+    def call(self, x, context, use_cache=False):
         # `x` is token-IDs shape (batch, target_seq_len)
         x = self.pos_embedding(x)  # (batch_size, target_seq_len, d_model)
 
         x = self.dropout(x)
 
         for i in range(self.num_layers):
-          x  = self.dec_layers[i](x, context)
+            x  = self.dec_layers[i](x, context, use_cache=use_cache)
 
         self.last_attn_scores = self.dec_layers[-1].last_attn_scores
 
         # The shape of x is (batch_size, target_seq_len, d_model).
         return x
+
+    def cache_reset(self):
+        for i in range(self.num_layers):
+            self.dec_layers[i].cache_reset()
 
 
 class Transformer(tf.keras.Model):
@@ -292,14 +316,14 @@ class Transformer(tf.keras.Model):
 
         self.final_layer = tf.keras.layers.Dense(target_vocab_size)
 
-    def call(self, inputs):
+    def call(self, inputs, use_cache=True):
         # To use a Keras model with `.fit` you must pass all your inputs in the
         # first argument.
         context, x  = inputs
 
         context = self.encoder(context)  # (batch_size, context_len, d_model)
 
-        x = self.decoder(x, context)  # (batch_size, target_len, d_model)
+        x = self.decoder(x, context, use_cache=use_cache)  # (batch_size, target_len, d_model)
 
         # Final linear layer output.
         logits = self.final_layer(x)  # (batch_size, target_len, target_vocab_size)
@@ -313,6 +337,9 @@ class Transformer(tf.keras.Model):
 
         # Return the final output and the attention weights.
         return logits
+
+    def cache_reset(self):
+        self.decoder.cache_reset()
 
 
 class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):

@@ -20,7 +20,7 @@ class H2HPredictor():
         m.model.load_weights(checkpoint_path)
         self.model = m.model
 
-    def __call__(self, text: str) -> str:
+    def __call__(self, text: str, use_cache=False) -> str:
         # call model on single string.
         start = 2
         end = 3
@@ -33,7 +33,7 @@ class H2HPredictor():
         for i in pbar:
             pbar.set_description(f"Calculating token on {i}th position")
             output = tf.transpose(output_array.stack())
-            predictions = self.model([input_tensor, output], training=False)
+            predictions = self.model([input_tensor, output], use_cache=use_cache, training=False)
 
             # Select the last token from the `seq_len` dimension.
             predictions = predictions[:, -1:, :]  # Shape `(batch_size, 1, vocab_size)`.
@@ -46,6 +46,8 @@ class H2HPredictor():
 
             if predicted_id[0][0] == end:
                 break
+
+        self.model.cache_reset()
 
         hanja_indice = output[0][1:]
         hanja = "".join([
@@ -91,6 +93,8 @@ class H2HPredictor():
 
             if tf.reduce_sum(end_sentences) == 0:
                 break
+
+        self.model.cache_reset()
 
         hanja_indices = output[:, 1:]
         return ["".join([idx2hanja[item] for item in line]) for line in hanja_indices.numpy()]

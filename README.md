@@ -65,17 +65,17 @@ By this faith we can save up the computational resource if we know that the prev
 >>> dt = time.time() - t
 >>> t = time.time()
 >>> for i in range(200):
-...     ca = sample_ca(hanja_emb[:, : i + 1, :], hangul_emb)
+...     ca_b = sample_ca(hanja_emb[:, : i + 1, :], hangul_emb)
 ...
 >>> dt2 = time.time() - t
 >>> dt
-1.242677927017212
+1.214463710784912
 >>> dt2
-1.5422871112823486
+1.5332591533660889
 >>> tf.reduce_max(abs(ca_uncached_1 - ca)).numpy()
-0.0
+1.9431114e-05
 >>> tf.reduce_max(abs(ca_uncached_2 - ca)).numpy()
-0.1893698
+0.13992691
 >>> sample_csa = CausalSelfAttention(num_heads=2, key_dim=512)
 >>> csa_uncached_1 = sample_csa(hanja_emb[:, :200, :])
 >>> sample_csa.cache_reset()
@@ -88,17 +88,36 @@ By this faith we can save up the computational resource if we know that the prev
 >>> dt = time.time() - t
 >>> t = time.time()
 >>> for i in range(200):
-...     csa = sample_csa(hanja_emb[:, : i + 1, :])
+...     csa_b = sample_csa(hanja_emb[:, : i + 1, :])
 ...
 >>> dt2 = time.time() - t
 >>> dt
-0.9523484706878662
+0.9817678928375244
 >>> dt2
-1.3749849796295166
+1.3714869022369385
 >>> tf.reduce_max(abs(csa_uncached_1 - csa)).numpy()
-0.0
+7.969141e-05
 >>> tf.reduce_max(abs(csa_uncached_2 - csa)).numpy()
-0.16129279
+0.20178244
+>>> ffn_uncached_2 = sample_ffn(hanja_emb)
+>>> sample_ffn.cache_reset()
+>>> t = time.time()
+>>> for i in range(200):
+...     ffn = sample_ffn(hanja_emb[:, : i + 1, :], use_cache = True)
+...
+>>> dt = time.time() - t
+>>> t = time.time()
+>>> for i in range(200):
+...     ffn_b = sample_ffn(hanja_emb[:, : i + 1, :])
+...
+>>> dt2 = time.time() - t
+>>> dt
+0.8870117664337158
+>>> dt2
+0.9862258434295654
+>>>
+>>> tf.reduce_max(abs(ffn_uncached_2 - ffn)).numpy()
+2.3841858e-06
 ```
 
 But nevertheless, there are way more to be covered here in the cache part though; as for the CA part, K and V matrices can be directly reused to omit a FC and transpose layer, while in the CSA part, only the part corresponding to the new position need to be calculated and concatenated to the previous K and V matrices. Since this requires to manually override the `tf.keras.layers.MultiHeadAttention.call()` code, and is not difficult at all to implement, I will leave this as a to-do item and a practice homework for our passionate reader, if some of my words happened to strike you along your journey seeking the ultimate truth.
@@ -114,15 +133,15 @@ Note by Lena: this paragraph is newly added.
 >>> from predict import H2HPredictor
 >>> p = H2HPredictor()
 >>> string = "그 성곽을 척량하매 일백 사십 사 규빗이니 사람의 척량 곧 천사의 척량이라"
->>> p(string)
-Calculating token on 41th position:  20%|█▏    | 41/200 [00:05<00:21,  7.40it/s]
+>>> p(string, use_cache=True)
+Calculating token on 41th position:  20%|█▏    | 41/200 [00:04<00:17,  9.19it/s]
 '그 城廓을 尺量하매 一百 四十 四 규빗이니 사람의 尺量 곧 天使의 尺量이라'
 >>> strings = [
 ...     "그 성곽을 척량하매 일백 사십 사 규빗이니 사람의 척량 곧 천사의 척량이라",
 ...     "그 열 두 문은 열 두 진주니 문마다 한 진주요 성의 길은 맑은 유리 같은 정금이더라",
 ... ]
 >>> p.convert(strings)
-Calculating tokens on 47th position:  24%|█▏   | 47/200 [00:04<00:15,  9.76it/s]
+Calculating tokens on 47th position:  24%|█▏   | 47/200 [00:02<00:07, 19.61it/s]
 ['그 城廓을 尺量하매 一百 四十 四 규빗이니 사람의 尺量 곧 天使의 尺量이라', '그 열 두 門은 열 두 眞珠니 門마다 한 眞珠요 城의 길은 맑은 琉利 같은 精金이더라']
 >>> import time
 >>> import codecs
@@ -142,7 +161,7 @@ Calculating tokens on 47th position:  24%|█▏   | 47/200 [00:04<00:15,  9.76i
 Calculating tokens on 74th position:  37%|█▊   | 74/200 [02:14<03:49,  1.82s/it]
 >>> dt = time.time() - t
 >>> dt
-135.10192584991455
+134.95508098602295
 >>> c[962]
 '내가 소리질러 불렀더니 그가 그 옷을 내게 버려두고 逃亡하여 나갔나이다'
 ```
