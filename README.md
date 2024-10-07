@@ -17,7 +17,91 @@ The KRV Bible is in the public domain. I have refined it to our purpose. Each li
 
 ## Model Architecture
 
-Note by Lena: The current architecture of this model is a 4-layer transformer, and part of the code is directly appropriated from [the Tensorflow tutorial](https://www.tensorflow.org/text/tutorials/transformer).
+Note by Lena: The current architecture of this model is a 4-layer transformer, and part of the code is directly appropriated from [the Tensorflow tutorial](https://www.tensorflow.org/text/tutorials/transformer). However, the cache part is my own invention.
+
+Lore is that the decoder is designed to be a causal architecture:
+```
+>>> out1 = sample_ca(embed_hanja(hanja[:, :3]), hangul_emb)
+>>> out2 = sample_ca(embed_hanja(hanja), hangul_emb)[:, :3]
+>>> tf.reduce_max(abs(out1 - out2)).numpy()
+1.6137958e-05
+>>> tf.reduce_sum(abs(out1)).numpy()
+40433.867
+>>> out1 = sample_csa(embed_hanja(hanja[:, :3]))
+>>> out2 = sample_csa(embed_hanja(hanja))[:, :3]
+>>> tf.reduce_max(abs(out1 - out2)).numpy()
+7.3097646e-05
+>>> tf.reduce_sum(abs(out1)).numpy()
+40413.035
+>>> out1 = sample_ffn(hanja_emb[:, :4])
+>>> out2 = sample_ffn(hanja_emb)[:, :4]
+>>> tf.reduce_sum(abs(out1 - out2)).numpy()
+0.017496139
+>>> tf.reduce_sum(abs(out1)).numpy()
+53226.266
+>>> out1 = sample_decoder_layer(x=hanja_emb[:, :4], context=hangul_emb)
+>>> out2 = sample_decoder_layer(x=hanja_emb, context=hangul_emb)[:, :4]
+>>> tf.reduce_sum(abs(out1 - out2)).numpy()
+0.7566235
+>>> tf.reduce_sum(abs(out1)).numpy()
+53063.684
+>>> out1 = transformer((hangul, hanja[:, :4]))
+>>> out2 = transformer((hangul, hanja))[:, :4]
+>>> tf.reduce_sum(abs(out1 - out2)).numpy()
+4.6746945
+>>> tf.reduce_sum(abs(out1)).numpy()
+93263.55
+```
+By this faith we can save up the computational resource if we know that the previous positions on the input are known:
+```
+>>> ca_uncached_1 = sample_ca(hanja_emb[:, :200, :], hangul_emb)
+>>> sample_ca.cache_reset()
+>>> ca_uncached_2 = sample_ca(hanja_emb, hangul_emb)
+>>> sample_ca.cache_reset()
+>>> t = time.time()
+>>> for i in range(200):
+...     ca = sample_ca(hanja_emb[:, : i + 1, :], hangul_emb, use_cache = True)
+...
+>>> dt = time.time() - t
+>>> t = time.time()
+>>> for i in range(200):
+...     ca = sample_ca(hanja_emb[:, : i + 1, :], hangul_emb)
+...
+>>> dt2 = time.time() - t
+>>> dt
+1.242677927017212
+>>> dt2
+1.5422871112823486
+>>> tf.reduce_max(abs(ca_uncached_1 - ca)).numpy()
+0.0
+>>> tf.reduce_max(abs(ca_uncached_2 - ca)).numpy()
+0.1893698
+>>> sample_csa = CausalSelfAttention(num_heads=2, key_dim=512)
+>>> csa_uncached_1 = sample_csa(hanja_emb[:, :200, :])
+>>> sample_csa.cache_reset()
+>>> csa_uncached_2 = sample_csa(hanja_emb)
+>>> sample_csa.cache_reset()
+>>> t = time.time()
+>>> for i in range(200):
+...     csa = sample_csa(hanja_emb[:, : i + 1, :], use_cache = True)
+...
+>>> dt = time.time() - t
+>>> t = time.time()
+>>> for i in range(200):
+...     csa = sample_csa(hanja_emb[:, : i + 1, :])
+...
+>>> dt2 = time.time() - t
+>>> dt
+0.9523484706878662
+>>> dt2
+1.3749849796295166
+>>> tf.reduce_max(abs(csa_uncached_1 - csa)).numpy()
+0.0
+>>> tf.reduce_max(abs(csa_uncached_2 - csa)).numpy()
+0.16129279
+```
+
+But nevertheless, there are way more to be covered here in the cache part though; as for the CA part, K and V matrices can be directly reused to omit a FC and transpose layer, while in the CSA part, only the part corresponding to the new position need to be calculated and concatenated to the previous K and V matrices. Since this requires to manually override the `tf.keras.layers.MultiHeadAttention.call()` code, and is not difficult at all to implement, I will leave this as a to-do item and a practice homework for our passionate reader, if some of my words happened to strike you along your journey seeking the ultimate truth.
 
 ## Training
   * Adjust hyperparameters in the `hyperparams.py` if necessary.

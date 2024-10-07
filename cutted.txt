@@ -326,6 +326,7 @@ for i in range(hanja_emb.shape[1]):
 ca_stepwise = tf.concat(ca_steps, axis=1)
 tf.reduce_max(abs(ca_stepwise - ca)).numpy()
 
+"""
 
 import numpy as np
 import time
@@ -348,6 +349,8 @@ for i in range(200):
     ca = sample_ca(hanja_emb[:, : i + 1, :], hangul_emb)
 
 dt2 = time.time() - t
+dt
+dt2
 
 tf.reduce_max(abs(ca_uncached_1 - ca)).numpy()
 tf.reduce_max(abs(ca_uncached_2 - ca)).numpy()
@@ -374,9 +377,10 @@ for i in range(200):
     csa = sample_csa(hanja_emb[:, : i + 1, :])
 
 dt2 = time.time() - t
+dt
+dt2
 
 tf.reduce_max(abs(csa_uncached_1 - csa)).numpy()
 tf.reduce_max(abs(csa_uncached_2 - csa)).numpy()
 
-"""
 
